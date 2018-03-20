@@ -1,5 +1,18 @@
+__precompile__(true)
+
 module GeodesicIntegration
 
-# package code goes here
+include("util.jl")
+include("metric.jl")
+include("adm.jl")
 
-end # module
+# General functions
+export grad, ∂
+
+# Metric related exports
+export Metric, dim, evaluate, christoffel
+
+# ADM-specific behaviour
+export threemetric, lapse, shift
+
+end

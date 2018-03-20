@@ -1,5 +1,5 @@
 using GeodesicIntegration
 using Base.Test
 
-# write your own tests here
-@test 1 == 2
+@time @testset "Numerical algorithm tests" begin include("math_test.jl") end
+@time @testset "Schwarzschild metric tests" begin include("schwarzschild_test.jl") end
