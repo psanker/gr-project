@@ -41,7 +41,7 @@ function diagmetric!(m1::Matrix{Function}, m2::Matrix{Function}, vec::Vector{Fun
     for j in 1:length(vec)
         for i in 1:j
             if j == i
-                m2[j, i] = vec[i]
+                m2[j, i] = vec2[i]
             else
                 m2[j, i] = _zerof
                 m2[i, j] = _zerof

@@ -66,9 +66,9 @@ Evaluates the Hamiltonian at a specific point `x` (relative to a *coordinate bas
 - `metric` : The spacetime 4-metric
 - `x` : The position vector
 - `u` : The velocity *one-form*
-- `ε` : 1.0 if the test particle is *time-like*; 0.0 if the test particle is *null-like*
+- `ε` : `true` if the test particle is *time-like*; `false` if the test particle is *null-like*
 """
-function hamiltonian(metric::Metric, x::Vector{<: Number}, u::Vector{<: Number}; ε=1.0)
+function hamiltonian(metric::Metric, x::Vector{<: Number}, u::Vector{<: Number}; ε=true)
     @assert length(x) == 4 "Position is a 4-vector"
     @assert length(u) == 4 "Velocity is a 4-dual"
     @assert dim(metric) == 4 "This method is only defined for the 4-metric"
@@ -77,15 +77,15 @@ function hamiltonian(metric::Metric, x::Vector{<: Number}, u::Vector{<: Number};
 
     γjk, invγjk = evaluate(threemetric(metric), x)
     
-    return lapse(metric, x)*(u3'invγjk*u3 + ε)^(1//2) + shift(metric, x)'u3
+    return lapse(metric, x)*(u3'invγjk*u3 + Float64(ε))^(1//2) + shift(metric, x)'u3
 end
 
-function hamiltonian(gμν::Matrix{Float64}, x::Vector{<: Number}, u::Vector{<: Number}; ε=1.0)
+function hamiltonian(gμν::Matrix{Float64}, x::Vector{<: Number}, u::Vector{<: Number}; ε=true)
     @assert length(x) == 4 "Position is a 4-vector"
     @assert length(u) == 4 "Velocity is a 4-dual"
     @assert dim(gμν) == 4 "This method is only defined for the 4-metric"
 
     u3 = @view u[2:end] # For convenience
 
-    return lapse(gμν)*(u3'inv(threemetric(gμν))*u3 + ε)^(1//2) + shift(gμν)'u3
+    return lapse(gμν)*(u3'inv(threemetric(gμν))*u3 + Float64(ε))^(1//2) + shift(gμν)'u3
 end
