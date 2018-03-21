@@ -15,7 +15,13 @@ scg33i(point::Vector{<: Number}) = point[2]^(-2.0) * csc(point[3])
 
 scmetric = Metric([scg00, scg11, scg22, scg33], [scg00i, scg11i, scg22i, scg33i])
 
-point = Vector([0.0, 6.0M, π/2, 0.0]);
+t = 0.0
+r = 6.0M
+θ = π/2
+ϕ = 0.0
+
+point  = Vector([t, r, θ, ϕ]);
+u_form = Vector([1.0, 0.0, 0.0, 0.0])
 
 # Tests
 @test typeof(point) <: AbstractVector
@@ -27,4 +33,8 @@ gμν, igμν = evaluate(scmetric, point)
 
 @test igμν*gμν ≈ diagm(ones(dim(scmetric)))
 
-# @time christoffel(scmetric, point)
+scfactor = (1.0 - (2.0M/r))
+
+testH = (scfactor)^(1//2) * (scfactor*u_form[2]^2 + (u_form[3] / r)^2 + (u_form[4] / (r * sin(θ)))^2 + 1.0)^(1//2)
+
+@test hamiltonian(gμν, point, u_form) ≈ testH

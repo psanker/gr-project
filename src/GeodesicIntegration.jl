@@ -10,9 +10,15 @@ include("adm.jl")
 export grad, ∂
 
 # Metric related exports
-export Metric, dim, evaluate, christoffel
+export Metric, 
+       dim, 
+       evaluate, 
+       christoffel
 
 # ADM-specific behaviour
-export threemetric, lapse, shift
+export threemetric, 
+       lapse,
+       shift, 
+       hamiltonian
 
 end

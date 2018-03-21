@@ -18,33 +18,45 @@ struct Metric
         @assert size(mat) == size(mat2) "The mappings and their inverses must have the same dimensions"
         
         # I'm going to assume that the mappings are symmetric for now I guess
-        new(mat, mat2)
+        new(copy(mat), copy(mat2))
     end
 end
 
-function diagmetric(vec::Vector{Function}, vec2::Vector{Function})
+function diagmetric!(m1::Matrix{Function}, m2::Matrix{Function}, vec::Vector{Function}, vec2::Vector{Function})
     @assert length(vec) == length(vec2) "The mappings and their inverses must have the same dimensions"
-    
-    met    = Matrix{Function}((length(vec), length(vec)))
-    invmet = Matrix{Function}((length(vec), length(vec)))
-    
-    for j in 1:length(vec), i in 1:length(vec)
-        if j == i
-            met[j, i] = vec[i]
-        else
-            met[j, i] = _zerof
+    @assert size(m1) == size(m2) "The allocated matrices must have the same dimensions"
+    @assert size(m1)[1] == size(m1)[2] "The allocated matrices must be square"
+
+    for j in 1:length(vec)
+        for i in 1:j
+            if j == i
+                m1[j, i] = vec[i]
+            else
+                m1[j, i] = _zerof
+                m1[i, j] = _zerof
+            end
         end
     end
 
-    for j in 1:length(vec), i in 1:length(vec)
-        if j == i
-            invmet[j, i] = vec2[i]
-        else
-            invmet[j, i] = _zerof
+    for j in 1:length(vec)
+        for i in 1:j
+            if j == i
+                m2[j, i] = vec[i]
+            else
+                m2[j, i] = _zerof
+                m2[i, j] = _zerof
+            end
         end
     end
-    
-    return Metric(met, invmet)
+
+    return Metric(m1, m2)
+end
+
+function diagmetric(vec::Vector{Function}, vec2::Vector{Function})
+    met    = Matrix{Function}((length(vec), length(vec)))
+    invmet = Matrix{Function}((length(vec), length(vec)))
+
+    return diagmetric!(met, invmet, vec, vec2)
 end
 
 Metric(vec::Vector{Function}, vec2::Vector{Function}) = diagmetric(vec, vec2)
@@ -68,38 +80,53 @@ end
 function evaluate(metric::Metric, point::Vector{<: Number})
     evaluated    = zeros(size(metric))
     invevaluated = zeros(size(metric))
-    
-    for j in 1:dim(metric), i in 1:dim(metric)
-        evaluated[j, i]    = metric[j, i](point)
-        invevaluated[j, i] = inv(metric)[j, i](point)
-    end
+
+    evaluate!(evaluated, invevaluated, metric, point)
     
     return (evaluated, invevaluated)
 end
 
-function ∂(f::Function, metric::Metric, point::Vector{<: Number})
-    # Allocate space for partials
-    
+function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}, metric::Metric, point::Vector{<: Number})
+    for j in 1:dim(metric)
+        for i in 1:j
+            if i ≠ j
+                evaluated[j, i]    = metric[j, i](point)
+                invevaluated[j, i] = inv(metric)[j, i](point)
+                
+                evaluated[i, j]    = metric[j, i](point)
+                invevaluated[i, j] = inv(metric)[j, i](point)
+            else
+                evaluated[j, i]    = metric[j, i](point)
+                invevaluated[j, i] = inv(metric)[j, i](point)
+            end
+        end
+    end
 end
 
 function christoffel(metric::Metric, point::Vector{<: Number}) 
     # Evaluate the metric at the point
-    gdμν, _ = evaluate(metric, point)
+    gμν, gμνinv = evaluate(metric, point)
     
     # Allocate space for partials
     ∂gμν = zeros(dim(metric), dim(metric), dim(metric))
     
-    for j in 1:dim(metric), i in 1:dim(metric)
-        ∂gμν[j, i, :] = ∂(metric[j, i], point)
+    # Take advantage of symmetries
+    for j in 1:dim(metric)
+        for i in 1:j
+            if i ≠ j
+                ∂gμν[j, i, :] = ∂(metric[j, i], point)
+                ∂gμν[i, j, :] = ∂(metric[j, i], point)
+            else
+                ∂gμν[j, i, :] = ∂(metric[j, i], point)
+            end
+        end
     end
-    
-    gμνinv = inv(gμν)
     
     # Split the sum due to limitations of TensorOperations
     @tensoropt begin
-        Γ[σ, μ, ν] := 0.5*gμνinv[σ, λ]*∂gμν[λ, μ, ν]
-        Γ[σ, μ, ν] = Γ[σ, μ, ν] + 0.5*gμνinv[σ, λ]*∂gμν[λ, ν, μ]
-        Γ[σ, μ, ν] = Γ[σ, μ, ν] - 0.5*gμνinv[σ, λ]*∂gμν[μ, ν, λ]
+        Γ[μ, ν, σ] := 0.5*gμνinv[σ, λ]*∂gμν[λ, μ, ν]
+        Γ[μ, ν, σ] = Γ[σ, μ, ν] + 0.5*gμνinv[σ, λ]*∂gμν[λ, ν, μ]
+        Γ[μ, ν, σ] = Γ[σ, μ, ν] - 0.5*gμνinv[σ, λ]*∂gμν[μ, ν, λ]
     end
     
     # Clean up numerical weirdness
