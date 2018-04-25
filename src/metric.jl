@@ -1,8 +1,9 @@
 #=
-Functions directly dealing with a general metric
+Metric definitions
 =#
 
 using TensorOperations
+using ForwardDiff
 
 import Base: size, getindex, ndims, inv
 
@@ -18,7 +19,7 @@ struct Metric
         @assert size(mat) == size(mat2) "The mappings and their inverses must have the same dimensions"
         
         # I'm going to assume that the mappings are symmetric for now I guess
-        new(copy(mat), copy(mat2))
+        new(mat, mat2)
     end
 end
 
@@ -61,7 +62,7 @@ end
 
 Metric(vec::Vector{Function}, vec2::Vector{Function}) = diagmetric(vec, vec2)
 
-getindex(metric::Metric, i::Integer, j::Integer) = metric.mappings[i, j]
+getindex(metric::Metric, i::I, j::I) where I <: Integer = metric.mappings[i, j]
 getindex(metric::Metric, r1::T, r2::T) where T <: AbstractVector = getindex(metric.mappings, r1, r2)
 
 size(metric::Metric) = size(metric.mappings)
@@ -77,59 +78,74 @@ function dim(mat::Matrix)
     return size(mat)[1]
 end
 
-function evaluate(metric::Metric, point::Vector{<: Number})
+function evaluate(metric::Metric, x::Vector{<: Number})
     evaluated    = zeros(size(metric))
     invevaluated = zeros(size(metric))
 
-    evaluate!(evaluated, invevaluated, metric, point)
+    evaluate!(evaluated, invevaluated, metric, x)
     
     return (evaluated, invevaluated)
 end
 
-function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}, metric::Metric, point::Vector{<: Number})
+function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}, metric::Metric, x::Vector{<: Number})
     for j in 1:dim(metric)
         for i in 1:j
             if i ≠ j
-                evaluated[j, i]    = metric[j, i](point)
-                invevaluated[j, i] = inv(metric)[j, i](point)
+                evaluated[j, i]    = metric[j, i](x)
+                invevaluated[j, i] = inv(metric)[j, i](x)
                 
-                evaluated[i, j]    = metric[j, i](point)
-                invevaluated[i, j] = inv(metric)[j, i](point)
+                evaluated[i, j]    = metric[j, i](x)
+                invevaluated[i, j] = inv(metric)[j, i](x)
             else
-                evaluated[j, i]    = metric[j, i](point)
-                invevaluated[j, i] = inv(metric)[j, i](point)
+                evaluated[j, i]    = metric[j, i](x)
+                invevaluated[j, i] = inv(metric)[j, i](x)
             end
         end
     end
 end
 
-function christoffel(metric::Metric, point::Vector{<: Number}) 
+function christoffel(metric::Metric, x::Vector{<: Number}) 
     # Evaluate the metric at the point
-    gμν, gμνinv = evaluate(metric, point)
+    gμν, gμνinv = evaluate(metric, x)
     
     # Allocate space for partials
     ∂gμν = zeros(dim(metric), dim(metric), dim(metric))
+    Γ    = zeros(dim(metric), dim(metric), dim(metric))
+    diff = zeros(length(x))
+    
+    christoffel!(Γ, ∂gμν, gμν, gμνinv, diff, metric, x)
+    return Γ
+end
+
+function christoffel!(Γ::Array{<: Number, 3}, 
+                      ∂gμν::Array{<: Number, 3},
+                      gμν::Matrix{<: Number},
+                      gμνinv::Matrix{<: Number},
+                      diff::Vector{<: Number},
+                      metric::Metric,
+                      x::Vector{<: Number})
     
     # Take advantage of symmetries
     for j in 1:dim(metric)
         for i in 1:j
             if i ≠ j
-                ∂gμν[j, i, :] = ∂(metric[j, i], point)
-                ∂gμν[i, j, :] = ∂(metric[j, i], point)
+                ForwardDiff.gradient!(diff, metric[j, i], x)
+                ∂gμν[j, i, :] = diff
+                ∂gμν[i, j, :] = diff
             else
-                ∂gμν[j, i, :] = ∂(metric[j, i], point)
+                ForwardDiff.gradient!(diff, metric[j, i], x)
+                ∂gμν[j, i, :] = diff
             end
         end
     end
     
     # Split the sum due to limitations of TensorOperations
     @tensoropt begin
-        Γ[μ, ν, σ] := 0.5*gμνinv[σ, λ]*∂gμν[λ, μ, ν]
-        Γ[μ, ν, σ] = Γ[σ, μ, ν] + 0.5*gμνinv[σ, λ]*∂gμν[λ, ν, μ]
-        Γ[μ, ν, σ] = Γ[σ, μ, ν] - 0.5*gμνinv[σ, λ]*∂gμν[μ, ν, λ]
+        Γ[μ, ν, σ] = 0.5*gμνinv[σ, λ]*∂gμν[λ, μ, ν]
+        Γ[μ, ν, σ] = Γ[μ, ν, σ] + 0.5*gμνinv[σ, λ]*∂gμν[λ, ν, μ]
+        Γ[μ, ν, σ] = Γ[μ, ν, σ] - 0.5*gμνinv[σ, λ]*∂gμν[μ, ν, λ]
     end
     
     # Clean up numerical weirdness
     cleanartifacts!(Γ)
-    return Γ
 end
