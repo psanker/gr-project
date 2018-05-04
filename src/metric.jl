@@ -78,7 +78,7 @@ function dim(mat::Matrix)
     return size(mat)[1]
 end
 
-function evaluate(metric::Metric, x::Vector{<: Number})
+function evaluate(metric::Metric, x)
     evaluated    = zeros(size(metric))
     invevaluated = zeros(size(metric))
 
@@ -87,7 +87,7 @@ function evaluate(metric::Metric, x::Vector{<: Number})
     return (evaluated, invevaluated)
 end
 
-function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}, metric::Metric, x::Vector{<: Number})
+function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}, metric::Metric, x)
     for j in 1:dim(metric)
         for i in 1:j
             if i ≠ j
@@ -104,7 +104,20 @@ function evaluate!(evaluated::Matrix{<: Number}, invevaluated::Matrix{<: Number}
     end
 end
 
-function christoffel(metric::Metric, x::Vector{<: Number}) 
+# function christoffel(metric::Metric, x::SubArray)
+    # # Evaluate the metric at the point
+    # gμν, gμνinv = evaluate(metric, x)
+    
+    # # Allocate space for partials
+    # ∂gμν = zeros(dim(metric), dim(metric), dim(metric))
+    # Γ    = zeros(dim(metric), dim(metric), dim(metric))
+    # diff = zeros(length(x))
+    
+    # christoffel!(Γ, ∂gμν, gμν, gμνinv, diff, metric, x)
+    # return Γ
+# end
+
+function christoffel(metric::Metric, x::Union{Vector{<: Number}, SubArray})
     # Evaluate the metric at the point
     gμν, gμνinv = evaluate(metric, x)
     
@@ -117,13 +130,46 @@ function christoffel(metric::Metric, x::Vector{<: Number})
     return Γ
 end
 
+# function christoffel!(Γ::Array{<: Number, 3},
+                      # ∂gμν::Array{<: Number, 3},
+                      # gμν::Matrix{<: Number},
+                      # gμνinv::Matrix{<: Number},
+                      # diff::Vector{<: Number},
+                      # metric::Metric,
+                      # x::SubArray)
+
+    # # Take advantage of symmetries
+    # for j in 1:dim(metric)
+        # for i in 1:j
+            # if i ≠ j
+                # ForwardDiff.gradient!(diff, metric[j, i], x)
+                # ∂gμν[j, i, :] = diff
+                # ∂gμν[i, j, :] = diff
+            # else
+                # ForwardDiff.gradient!(diff, metric[j, i], x)
+                # ∂gμν[j, i, :] = diff
+            # end
+        # end
+    # end
+    
+    # # Split the sum due to limitations of TensorOperations
+    # @tensoropt begin
+        # Γ[σ, μ, ν] = 0.5*gμνinv[σ, λ]*∂gμν[λ, μ, ν]
+        # Γ[σ, μ, ν] = Γ[σ, μ, ν] + 0.5*gμνinv[σ, λ]*∂gμν[λ, ν, μ]
+        # Γ[σ, μ, ν] = Γ[σ, μ, ν] - 0.5*gμνinv[σ, λ]*∂gμν[μ, ν, λ]
+    # end
+    
+    # # Clean up numerical weirdness
+    # cleanartifacts!(Γ)
+# end
+
 function christoffel!(Γ::Array{<: Number, 3}, 
                       ∂gμν::Array{<: Number, 3},
                       gμν::Matrix{<: Number},
                       gμνinv::Matrix{<: Number},
                       diff::Vector{<: Number},
                       metric::Metric,
-                      x::Vector{<: Number})
+                      x::Union{Vector{<: Number}, SubArray})
     
     # Take advantage of symmetries
     for j in 1:dim(metric)
@@ -149,3 +195,5 @@ function christoffel!(Γ::Array{<: Number, 3},
     # Clean up numerical weirdness
     cleanartifacts!(Γ)
 end
+
+export diagmetric, evaluate, christoffel
