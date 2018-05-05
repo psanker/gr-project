@@ -9,6 +9,7 @@ module GeodesicIntegration
     include("metric.jl")
     include("adm.jl")
     include("direct.jl")
+    include("metrics.jl")
 
     # General functions
     export sphericaltocartesian
@@ -34,24 +35,14 @@ module GeodesicIntegration
     # For user codes
     export scaffold
 
+    # Some sample metrics
+    export SchwarzchildMetric, KerrNewmanMetric
 
     function __init__()
         # Help speed up render times by running some user code so __precompile__ can catch it
 
         M = 3.0
-
-        scg00(point) = -(1.0 - (2.0M / point[2]))
-        scg11(point) = (1.0 - (2.0M / point[2]))^(-1.0)
-        scg22(point) = point[2]^(2.0)
-        scg33(point) = point[2]^(2.0) * sin(point[3])
-
-        scg00i(point) = -(1.0 - (2.0M / point[2]))^(-1.0)
-        scg11i(point) = (1.0 - (2.0M / point[2]))
-        scg22i(point) = point[2]^(-2.0)
-        scg33i(point) = point[2]^(-2.0) * csc(point[3])
-
-        scmetric = Metric([scg00, scg11, scg22, scg33], [scg00i, scg11i, scg22i, scg33i]);
-
+        scmetric = SchwarzchildMetric(M)
 
         problem = DirectGeodesicProblem(scmetric)
         init_x  = [0.0, 6.0M, π/2, π/4]; # Initial x^μ
