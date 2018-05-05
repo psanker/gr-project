@@ -196,4 +196,4 @@ function christoffel!(Γ::Array{<: Number, 3},
     cleanartifacts!(Γ)
 end
 
-export diagmetric, evaluate, christoffel
+export diagmetric, evaluate, evaluate!, christoffel, christoffel!, dim

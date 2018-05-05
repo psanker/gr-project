@@ -34,4 +34,33 @@ module GeodesicIntegration
     # For user codes
     export scaffold
 
+
+    function __init__()
+        # Help speed up render times by running some user code so __precompile__ can catch it
+
+        M = 3.0
+
+        scg00(point) = -(1.0 - (2.0M / point[2]))
+        scg11(point) = (1.0 - (2.0M / point[2]))^(-1.0)
+        scg22(point) = point[2]^(2.0)
+        scg33(point) = point[2]^(2.0) * sin(point[3])
+
+        scg00i(point) = -(1.0 - (2.0M / point[2]))^(-1.0)
+        scg11i(point) = (1.0 - (2.0M / point[2]))
+        scg22i(point) = point[2]^(-2.0)
+        scg33i(point) = point[2]^(-2.0) * csc(point[3])
+
+        scmetric = Metric([scg00, scg11, scg22, scg33], [scg00i, scg11i, scg22i, scg33i]);
+
+
+        problem = DirectGeodesicProblem(scmetric)
+        init_x  = [0.0, 6.0M, π/2, π/4]; # Initial x^μ
+        init_u3 = [-1.0, 0.003, 0.08];   # Initial u^i, u^0 will be determined by normalization
+
+        tspan  = (0.0, 5.0)
+        diffeq = scaffold(problem, init_x, init_u3, tspan)
+
+        sol = solve(diffeq, reltol=1e-6);
+    end
+
 end
