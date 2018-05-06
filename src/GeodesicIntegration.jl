@@ -29,29 +29,28 @@ module GeodesicIntegration
         u0  = sqrt((-ϵ - init3u'gμν[2:end, 2:end]*init3u) / gμν[1, 1])
 
         X0 = [initx..., u0, init3u...] # Vector of initial conditions
-        return ODEProblem(geodesicstep, X0, λspan, problem)
+        return ODEProblem(geodesicstep, X0, λspan, problem), X0
     end
 
     # For user codes
     export scaffold
 
     # Some sample metrics
-    export SchwarzchildMetric, KerrNewmanMetric
+    export SchwarzschildMetric, KerrNewmanMetric
 
     function __init__()
         # Help speed up render times by running some user code so __precompile__ can catch it
 
         M = 3.0
-        scmetric = SchwarzchildMetric(M)
+        scmetric = SchwarzschildMetric(M)
 
         problem = DirectGeodesicProblem(scmetric)
         init_x  = [0.0, 6.0M, π/2, π/4]; # Initial x^μ
         init_u3 = [-1.0, 0.003, 0.08];   # Initial u^i, u^0 will be determined by normalization
 
-        tspan  = (0.0, 5.0)
-        diffeq = scaffold(problem, init_x, init_u3, tspan)
+        tspan     = (0.0, 5.0)
+        diffeq, _ = scaffold(problem, init_x, init_u3, tspan)
 
         sol = solve(diffeq, reltol=1e-6);
     end
-
 end

@@ -1,4 +1,4 @@
-SchwarzchildMetric(M) = begin
+SchwarzschildMetric(M) = begin
     scg00(point) = -(1.0 - (2.0M / point[2]))
     scg11(point) = (1.0 - (2.0M / point[2]))^(-1.0)
     scg22(point) = point[2]^(2.0)
@@ -116,3 +116,9 @@ KerrNewmanMetric(M, a, Q) = begin
 
     return Metric(mat, imat)
 end
+
+killing_e(metric::Metric, init_x, init_ut) = -evaluate(metric, init_x)[1][1, 1]*init_ut
+
+killing_l(metric::Metric, init_x, init_uϕ) = evaluate(metric, init_x)[1][4, 4]*init_uϕ
+
+export killing_e, killing_l
