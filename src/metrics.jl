@@ -117,8 +117,17 @@ KerrNewmanMetric(M, a, Q) = begin
     return Metric(mat, imat)
 end
 
-killing_e(metric::Metric, init_x, init_ut) = -evaluate(metric, init_x)[1][1, 1]*init_ut
+killing_e(metric::Metric, init_x, init_u) = begin
+    gμν, _ = evaluate(metric, init_x)
 
-killing_l(metric::Metric, init_x, init_uϕ) = evaluate(metric, init_x)[1][4, 4]*init_uϕ
+    return -gμν[1, :]'init_u
+end
+
+killing_l(metric::Metric, init_x, init_uϕ) = begin
+    gμν, _ = evaluate(metric, init_x)
+    K = [0, 0, 0, 1]
+
+    return gμν[4, :]'init_uϕ
+end
 
 export killing_e, killing_l

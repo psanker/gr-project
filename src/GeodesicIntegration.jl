@@ -25,10 +25,14 @@ module GeodesicIntegration
 
         ϵ      = Int(timelike)                   # If null (photons), will be 0
         gμν, _ = evaluate(problem.metric, initx) # Needed to calculate initial 4-vel
+        gij    = @view gμν[2:end, 2:end]
 
-        u0  = sqrt((-ϵ - init3u'gμν[2:end, 2:end]*init3u) / gμν[1, 1])
+        b  = (gμν[1, 2:end]'init3u)/gμν[1, 1]
+        ac = (init3u'gij*init3u + ϵ)/gμν[1, 1]
 
-        X0 = [initx..., u0, init3u...] # Vector of initial conditions
+        u0  = -b + sqrt(b*b - ac)
+        X0  = [initx..., u0, init3u...]
+
         return ODEProblem(geodesicstep, X0, λspan, problem), X0
     end
 
@@ -48,9 +52,22 @@ module GeodesicIntegration
         init_x  = [0.0, 6.0M, π/2, π/4]; # Initial x^μ
         init_u3 = [-1.0, 0.003, 0.08];   # Initial u^i, u^0 will be determined by normalization
 
-        tspan     = (0.0, 5.0)
-        diffeq, _ = scaffold(problem, init_x, init_u3, tspan)
+        tspan      = (0.0, 5.0)
+        diffeq, X0 = scaffold(problem, init_x, init_u3, tspan)
 
-        sol = solve(diffeq, reltol=1e-6);
+        ε = killing_e(scmetric, init_x, X0[5:8])
+        l = killing_l(scmetric, init_x, X0[5:8])
+
+        # Assert energy and angular momentum conservation via manifold projection callback
+        # Maintain the normalization of the 4-velocity
+        function g(r, u, p, t)
+            r[1] = 0; r[2] = 0; r[3] = 0; r[4] = 0;
+            r[5] = @. ((1 - (2M / u[2])) * u[5]) - ε
+            r[6] = 0; r[7] = 0;
+            r[8] = @. u[2]*u[2]*sin(u[3])*sin(u[3])*u[8] - l
+        end
+
+        cb  = ManifoldProjection(g) 
+        sol = solve(diffeq, reltol=1e-6, callback=cb);
     end
 end
